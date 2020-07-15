@@ -1,0 +1,39 @@
+stages:
+  - test
+  - build
+  - deploy
+
+test:
+  stage: test
+  variables:
+    TEST_PATH: "/home/test/log"
+  script:
+  - echo "Running test..."
+  - pwd
+  - if [ ! -d $TEST_PATH ]; then mkdir -p $TEST_PATH; fi
+  - rsync -arvz --include-from './rsync-include.txt' --exclude-from './rsync-exclude.txt' --delete ./ $TEST_PATH
+  - cd $TEST_PATH
+  - docker build -t calc_log_img_test .
+  - docker container rm calc_log_test --force || true
+  - docker run --detach --name calc_log_test calc_log_img_test
+  - docker container rm calc_log_test --force || true
+
+build:
+  stage: build
+  script: echo "Building the app..."
+
+deploy to production:
+  stage: deploy
+  variables:
+    DEPLOY_PATH: "/home/deploy/log"
+  script:
+    - echo "Deploy to production server..."
+    - pwd
+    - if [ ! -d $DEPLOY_PATH ]; then mkdir -p $DEPLOY_PATH; fi
+    - rsync -arvz --include-from './rsync-include.txt' --exclude-from './rsync-exclude.txt' --delete ./ $DEPLOY_PATH
+    - cd $DEPLOY_PATH
+    - docker build -t calc_log_img .
+    - docker container rm calc_log --force || true
+    - docker run --detach --network="host" --name calc_log calc_log_img
+  environment:
+    name: production
